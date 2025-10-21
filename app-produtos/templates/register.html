@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar - APP Produtos{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <i class="fas fa-user-plus auth-icon"></i>
+            <h2>Criar Conta</h2>
+            <p>Cadastre-se para começar</p>
+        </div>
+        
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="full_name">
+                    <i class="fas fa-id-card"></i>
+                    Nome Completo:
+                </label>
+                <input type="text" id="full_name" name="full_name" required placeholder="Digite seu nome completo">
+            </div>
+            
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i>
+                    Usuário:
+                </label>
+                <input type="text" id="username" name="username" required placeholder="Escolha um nome de usuário">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">
+                    <i class="fas fa-envelope"></i>
+                    Email:
+                </label>
+                <input type="email" id="email" name="email" required placeholder="Digite seu email">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-key"></i>
+                    Senha:
+                </label>
+                <input type="password" id="password" name="password" required minlength="6" placeholder="Mínimo 6 caracteres">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-user-plus"></i>
+                Criar Conta
+            </button>
+        </form>
+
+        <div class="auth-links">
+            <p>Já tem uma conta? <a href="{{ url_for('login') }}" class="auth-link">Faça login</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

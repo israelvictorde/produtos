@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Usuários - APP Produtos{% endblock %}
+
+{% block content %}
+<div class="users-container">
+    <div class="page-header">
+        <h2><i class="fas fa-users"></i> Gerenciar Usuários</h2>
+        <p>Gerencie os usuários do sistema</p>
+    </div>
+
+    <div class="users-actions">
+        <button class="btn btn-primary btn-lg" onclick="openUserModal()">
+            <i class="fas fa-user-plus"></i>
+            Novo Usuário
+        </button>
+        <div class="search-box">
+            <input type="text" id="userSearchInput" placeholder="Buscar usuários..." onkeyup="searchUsers()">
+            <i class="fas fa-search"></i>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Usuário</th>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Produtos</th>
+                    <th>Cadastro</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                {% for user in users %}
+                <tr data-username="{{ user.username.lower() }}" data-name="{{ user.full_name.lower() if user.full_name else '' }}">
+                    <td>{{ user.id }}</td>
+                    <td>
+                        <div class="user-info">
+                            <i class="fas fa-user"></i>
+                            {{ user.username }}
+                            {% if user.username == session.username %}
+                            <span class="badge badge-primary">Você</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>{{ user.full_name or 'N/A' }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <span class="status-badge {% if user.is_active %}active{% else %}inactive{% endif %}">
+                            <i class="fas fa-circle"></i>
+                            {{ 'Ativo' if user.is_active else 'Inativo' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="product-count">{{ user.products|length }}</span>
+                    </td>
+                    <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-warning" onclick="editUser({{ user.id }})" title="Editar" {% if user.username == session.username %}disabled{% endif %}>
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})" title="Excluir" {% if user.username == session.username %}disabled{% endif %}>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="btn btn-sm btn-{% if user.is_active %}secondary{% else %}success{% endif %}" onclick="toggleUserStatus({{ user.id }}, {% if user.is_active %}true{% else %}false{% endif %})" title="{% if user.is_active %}Desativar{% else %}Ativar{% endif %}">
+                                <i class="fas fa-{% if user.is_active %}ban{% else %}check{% endif %}"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not users %}
+    <div class="empty-state">
+        <i class="fas fa-users-slash"></i>
+        <h3>Nenhum usuário encontrado</h3>
+        <p>Cadastre o primeiro usuário do sistema!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para cadastrar/editar usuário -->
+<div id="userModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="userModalTitle"><i class="fas fa-user-plus"></i> Cadastrar Novo Usuário</h3>
+            <span class="close" onclick="closeUserModal()">&times;</span>
+        </div>
+        
+        <form id="userForm" class="modal-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="userFullName">
+                        <i class="fas fa-id-card"></i>
+                        Nome Completo:
+                    </label>
+                    <input type="text" id="userFullName" name="full_name" required placeholder="Digite o nome completo">
+                </div>
+                
+                <div class="form-group">
+                    <label for="userUsername">
+                        <i class="fas fa-user"></i>
+                        Usuário:
+                    </label>
+                    <input type="text" id="userUsername" name="username" required placeholder="Escolha um nome de usuário">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="userEmail">
+                    <i class="fas fa-envelope"></i>
+                    Email:
+                </label>
+                <input type="email" id="userEmail" name="email" required placeholder="Digite o email">
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="userPassword">
+                        <i class="fas fa-key"></i>
+                        Senha:
+                    </label>
+                    <input type="password" id="userPassword" name="password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                </div>
+                
+                <div class="form-group">
+                    <label for="userConfirmPassword">
+                        <i class="fas fa-key"></i>
+                        Confirmar Senha:
+                    </label>
+                    <input type="password" id="userConfirmPassword" required placeholder="Confirme a senha">
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Salvar Usuário
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentUserId = null;
+
+function openUserModal(user = null) {
+    const modal = document.getElementById('userModal');
+    const title = document.getElementById('userModalTitle');
+    const form = document.getElementById('userForm');
+    
+    if (user) {
+        title.innerHTML = '<i class="fas fa-edit"></i> Editar Usuário';
+        document.getElementById('userFullName').value = user.full_name || '';
+        document.getElementById('userUsername').value = user.username || '';
+        document.getElementById('userEmail').value = user.email || '';
+        document.getElementById('userPassword').value = '';
+        document.getElementById('userPassword').required = false;
+        document.getElementById('userConfirmPassword').value = '';
+        document.getElementById('userConfirmPassword').required = false;
+        currentUserId = user.id;
+    } else {
+        title.innerHTML = '<i class="fas fa-user-plus"></i> Cadastrar Novo Usuário';
+        form.reset();
+        document.getElementById('userPassword').required = true;
+        document.getElementById('userConfirmPassword').required = true;
+        currentUserId = null;
+    }
+    
+    modal.style.display = 'block';
+}
+
+function closeUserModal() {
+    document.getElementById('userModal').style.display = 'none';
+    currentUserId = null;
+}
+
+function editUser(userId) {
+    // Para simplificar, vamos apenas abrir o modal com os dados básicos
+    // Em uma implementação real, você buscaria os dados do usuário via API
+    const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+    if (userRow) {
+        const user = {
+            id: userId,
+            full_name: userRow.querySelector('.user-full-name').textContent,
+            username: userRow.querySelector('.user-username').textContent,
+            email: userRow.querySelector('.user-email').textContent
+        };
+        openUserModal(user);
+    } else {
+        alert('Funcionalidade de edição em desenvolvimento!');
+    }
+}
+
+function deleteUser(userId) {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita!')) {
+        // Implementação básica - em produção, use API
+        alert('Funcionalidade de exclusão em desenvolvimento! ID: ' + userId);
+    }
+}
+
+function toggleUserStatus(userId, isCurrentlyActive) {
+    const action = isCurrentlyActive ? 'desativar' : 'ativar';
+    if (confirm(`Tem certeza que deseja ${action} este usuário?`)) {
+        // Implementação básica - em produção, use API
+        alert(`Funcionalidade de ${action} usuário em desenvolvimento! ID: ${userId}`);
+    }
+}
+
+function searchUsers() {
+    const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
+    const userRows = document.querySelectorAll('#usersTableBody tr');
+    
+    userRows.forEach(row => {
+        const username = row.getAttribute('data-username');
+        const name = row.getAttribute('data-name');
+        const matches = username.includes(searchTerm) || name.includes(searchTerm);
+        row.style.display = matches ? '' : 'none';
+    });
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const userForm = document.getElementById('userForm');
+    
+    userForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const password = document.getElementById('userPassword').value;
+        const confirmPassword = document.getElementById('userConfirmPassword').value;
+        
+        if (password !== confirmPassword) {
+            alert('As senhas não coincidem!');
+            return;
+        }
+        
+        if (password.length < 6) {
+            alert('A senha deve ter pelo menos 6 caracteres!');
+            return;
+        }
+        
+        const formData = {
+            full_name: document.getElementById('userFullName').value,
+            username: document.getElementById('userUsername').value,
+            email: document.getElementById('userEmail').value,
+            password: password
+        };
+        
+        // Configurar a requisição
+        const requestOptions = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        };
+        
+        fetch('/api/users', requestOptions)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.message) {
+                    closeUserModal();
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert(data.error || 'Erro ao criar usuário!');
+                }
+            })
+            .catch(error => {
+                alert(error.error || 'Erro ao criar usuário!');
+                console.error('Error:', error);
+            });
+    });
+});
+
+// Fechar modal ao clicar fora
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('userModal');
+    if (e.target === modal) {
+        closeUserModal();
+    }
+});
+</script>
+{% endblock %}

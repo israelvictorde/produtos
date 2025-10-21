@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}Produtos - APP Produtos{% endblock %}
+
+{% block content %}
+<div class="products-container">
+    <div class="page-header">
+        <h2><i class="fas fa-box"></i> Gerenciar Produtos</h2>
+        <p>Cadastre e gerencie seus produtos</p>
+    </div>
+
+    <div class="products-actions">
+        <button class="btn btn-primary btn-lg" onclick="openModal()">
+            <i class="fas fa-plus"></i>
+            Novo Produto
+        </button>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Buscar produtos..." onkeyup="searchProducts()">
+            <i class="fas fa-search"></i>
+        </div>
+    </div>
+
+    <div class="products-stats">
+        <div class="stat-badge">
+            <i class="fas fa-box"></i>
+            <span id="totalProducts">{{ products|length }}</span> produtos
+        </div>
+        <div class="stat-badge">
+            <i class="fas fa-check-circle"></i>
+            <span id="availableProducts">{{ products|selectattr('is_available')|list|length }}</span> disponíveis
+        </div>
+    </div>
+
+    <div class="products-grid" id="productsGrid">
+        {% for product in products %}
+        <div class="product-card" data-name="{{ product.name.lower() }}" data-category="{{ product.category.lower() }}">
+            <div class="product-header">
+                <h3>{{ product.name }}</h3>
+                <span class="product-category">{{ product.category }}</span>
+            </div>
+            
+            <div class="product-body">
+                <p class="product-description">{{ product.description }}</p>
+                
+                <div class="product-details">
+                    {% if product.price %}
+                    <div class="product-price">
+                        <i class="fas fa-tag"></i>
+                        R$ {{ "%.2f"|format(product.price) }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="product-quantity">
+                        <i class="fas fa-cubes"></i>
+                        {{ product.quantity }} unidades
+                    </div>
+                    
+                    <div class="product-status">
+                        <i class="fas fa-circle status-{{ 'available' if product.is_available else 'unavailable' }}"></i>
+                        {{ 'Disponível' if product.is_available else 'Indisponível' }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="product-footer">
+                <small class="product-date">
+                    <i class="fas fa-calendar"></i>
+                    {{ product.created_at.strftime('%d/%m/%Y') }}
+                </small>
+                <div class="product-actions">
+                    <button class="btn btn-sm btn-warning" onclick="editProduct({ product,id })" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteProduct({ product,id })" title="Excluir">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-box-open"></i>
+            <h3>Nenhum produto cadastrado</h3>
+            <p>Comece cadastrando seu primeiro produto!</p>
+            <button class="btn btn-primary" onclick="openModal()">
+                <i class="fas fa-plus"></i>
+                Cadastrar Primeiro Produto
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal para cadastrar/editar produto -->
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle"><i class="fas fa-plus"></i> Cadastrar Novo Produto</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        
+        <form id="productForm" class="modal-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="productName">
+                        <i class="fas fa-tag"></i>
+                        Nome do Produto:
+                    </label>
+                    <input type="text" id="productName" name="name" required placeholder="Ex: Smartphone Samsung">
+                </div>
+                
+                <div class="form-group">
+                    <label for="productCategory">
+                        <i class="fas fa-folder"></i>
+                        Categoria:
+                    </label>
+                    <select id="productCategory" name="category" required>
+                        <option value="">Selecione uma categoria</option>
+                        {% for category in categories %}
+                        <option value="{{ category.name }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="productDescription">
+                    <i class="fas fa-align-left"></i>
+                    Descrição:
+                </label>
+                <textarea id="productDescription" name="description" rows="4" required placeholder="Descreva o produto..."></textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="productPrice">
+                        <i class="fas fa-dollar-sign"></i>
+                        Preço (R$):
+                    </label>
+                    <input type="number" id="productPrice" name="price" step="0.01" min="0" placeholder="0,00">
+                </div>
+                
+                <div class="form-group">
+                    <label for="productQuantity">
+                        <i class="fas fa-cubes"></i>
+                        Quantidade:
+                    </label>
+                    <input type="number" id="productQuantity" name="quantity" min="0" value="1" placeholder="0">
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Salvar Produto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentProductId = null;
+
+function openModal(product = null) {
+    const modal = $('#productModal');
+    const title = $('#modalTitle');
+    const form = $('#productForm')[0];
+    
+    if (product) {
+        title.html('<i class="fas fa-edit"></i> Editar Produto');
+        $('#productName').val(product.name);
+        $('#productDescription').val(product.description);
+        $('#productPrice').val(product.price);
+        $('#productCategory').val(product.category);
+        $('#productQuantity').val(product.quantity);
+        currentProductId = product.id;
+    } else {
+        title.html('<i class="fas fa-plus"></i> Cadastrar Novo Produto');
+        form.reset();
+        currentProductId = null;
+    }
+    
+    modal.show();
+}
+
+function closeModal() {
+    $('#productModal').hide();
+    currentProductId = null;
+}
+
+function editProduct(productId) {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+        openModal(product);
+    }
+}
+
+function deleteProduct(productId) {
+    if (confirm('Tem certeza que deseja excluir este produto?')) {
+        $.ajax({
+            url: `/api/products/${productId}`,
+            type: 'DELETE',
+            success: function(response) {
+                loadProducts();
+                showNotification('Produto excluído com sucesso!', 'success');
+            },
+            error: function(xhr) {
+                showNotification('Erro ao excluir produto!', 'error');
+            }
+        });
+    }
+}
+
+function searchProducts() {
+    const searchTerm = $('#searchInput').val().toLowerCase();
+    const productCards = $('.product-card');
+    
+    productCards.each(function() {
+        const productName = $(this).data('name');
+        const productCategory = $(this).data('category');
+        const matches = productName.includes(searchTerm) || productCategory.includes(searchTerm);
+        $(this).toggle(matches);
+    });
+}
+
+function showNotification(message, type = 'success') {
+    // Implementar notificação (pode usar Toast ou alert simples)
+    alert(message);
+}
+
+// Variável global para armazenar produtos
+let products = [];
+
+function loadProducts() {
+    $.get('/api/products', function(data) {
+        products = data;
+        renderProducts();
+    }).fail(function() {
+        showNotification('Erro ao carregar produtos!', 'error');
+    });
+}
+
+function renderProducts() {
+    const grid = $('#productsGrid');
+    const totalProducts = $('#totalProducts');
+    const availableProducts = $('#availableProducts');
+    
+    if (products.length === 0) {
+        grid.html(`
+            <div class="empty-state">
+                <i class="fas fa-box-open"></i>
+                <h3>Nenhum produto cadastrado</h3>
+                <p>Comece cadastrando seu primeiro produto!</p>
+                <button class="btn btn-primary" onclick="openModal()">
+                    <i class="fas fa-plus"></i>
+                    Cadastrar Primeiro Produto
+                </button>
+            </div>
+        `);
+        totalProducts.text('0');
+        availableProducts.text('0');
+        return;
+    }
+    
+    let availableCount = 0;
+    let html = '';
+    
+    products.forEach(product => {
+        if (product.is_available) availableCount++;
+        
+        html += `
+            <div class="product-card" data-name="${product.name.toLowerCase()}" data-category="${product.category.toLowerCase()}">
+                <div class="product-header">
+                    <h3>${product.name}</h3>
+                    <span class="product-category">${product.category}</span>
+                </div>
+                
+                <div class="product-body">
+                    <p class="product-description">${product.description}</p>
+                    
+                    <div class="product-details">
+                        ${product.price ? `
+                        <div class="product-price">
+                            <i class="fas fa-tag"></i>
+                            R$ ${parseFloat(product.price).toFixed(2)}
+                        </div>
+                        ` : ''}
+                        
+                        <div class="product-quantity">
+                            <i class="fas fa-cubes"></i>
+                            ${product.quantity} unidades
+                        </div>
+                        
+                        <div class="product-status">
+                            <i class="fas fa-circle status-${product.is_available ? 'available' : 'unavailable'}"></i>
+                            ${product.is_available ? 'Disponível' : 'Indisponível'}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="product-footer">
+                    <small class="product-date">
+                        <i class="fas fa-calendar"></i>
+                        ${product.created_at}
+                    </small>
+                    <div class="product-actions">
+                        <button class="btn btn-sm btn-warning" onclick="editProduct(${product.id})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.id})" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    grid.html(html);
+    totalProducts.text(products.length);
+    availableProducts.text(availableCount);
+}
+
+$(document).ready(function() {
+    loadProducts();
+    
+    $('#productForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            name: $('#productName').val(),
+            description: $('#productDescription').val(),
+            price: $('#productPrice').val(),
+            category: $('#productCategory').val(),
+            quantity: $('#productQuantity').val()
+        };
+        
+        const url = currentProductId ? `/api/products/${currentProductId}` : '/api/products';
+        const method = currentProductId ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            type: method,
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                closeModal();
+                loadProducts();
+                showNotification(
+                    currentProductId ? 'Produto atualizado com sucesso!' : 'Produto cadastrado com sucesso!',
+                    'success'
+                );
+            },
+            error: function(xhr) {
+                showNotification('Erro ao salvar produto!', 'error');
+            }
+        });
+    });
+});
+
+// Fechar modal clicando fora
+$(window).on('click', function(e) {
+    if ($(e.target).is('#productModal')) {
+        closeModal();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV - Sistema de Vendas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <i class="fas fa-cash-register"></i>
+                <span>Ponto de Venda</span>
+            </div>
+        </div>
+        
+        <div class="header-center">
+            <nav class="main-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard
+                </a>
+                <a href="{{ url_for('pdv') }}" class="nav-item active">
+                    <i class="fas fa-shopping-cart"></i>
+                    PDV
+                </a>
+                <a href="{{ url_for('produtos') }}" class="nav-item">
+                    <i class="fas fa-boxes"></i>
+                    Produtos
+                </a>
+            </nav>
+        </div>
+
+        <div class="header-right">
+            <div class="sale-info">
+                <span class="sale-number">Venda #00126</span>
+                <span class="sale-time" id="currentTime"></span>
+            </div>
+        </div>
+    </header>
+
+    <main class="pdv-container">
+        <!-- Painel de Produtos -->
+        <div class="products-panel">
+            <div class="panel-header">
+                <h2>Produtos</h2>
+                <div class="search-box">
+                    <input type="text" id="productSearch" placeholder="Buscar produto...">
+                    <i class="fas fa-search"></i>
+                </div>
+            </div>
+
+            <div class="categories">
+                <button class="category-btn active">Todos</button>
+                <button class="category-btn">Eletrônicos</button>
+                <button class="category-btn">Informática</button>
+                <button class="category-btn">Acessórios</button>
+            </div>
+
+            <div class="products-grid">
+                {% for product in products %}
+                <div class="product-card" onclick="addToCart({ product,id })">
+                    <div class="product-image">
+                        <i class="fas fa-{{ 'mobile-alt' if 'phone' in product.name.lower() else 'laptop' if 'notebook' in product.name.lower() else 'headphones' if 'fone' in product.name.lower() else 'tablet-alt' }}"></i>
+                    </div>
+                    <div class="product-info">
+                        <h4>{{ product.name }}</h4>
+                        <p class="product-price">R$ {{ "%.2f"|format(product.price) }}</p>
+                        <p class="product-stock">Estoque: {{ product.quantity }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Painel do Carrinho -->
+        <div class="cart-panel">
+            <div class="cart-header">
+                <h2>Carrinho de Vendas</h2>
+                <button class="btn btn-clear" onclick="clearCart()">
+                    <i class="fas fa-trash"></i>
+                    Limpar
+                </button>
+            </div>
+
+            <div class="customer-section">
+                <label>Cliente:</label>
+                <select id="customerSelect">
+                    <option value="">Cliente não identificado</option>
+                    <option value="1">João Silva</option>
+                    <option value="2">Maria Santos</option>
+                    <option value="3">Pedro Oliveira</option>
+                </select>
+                <button class="btn btn-outline">
+                    <i class="fas fa-plus"></i>
+                    Novo Cliente
+                </button>
+            </div>
+
+            <div class="cart-items" id="cartItems">
+                <div class="empty-cart">
+                    <i class="fas fa-shopping-cart"></i>
+                    <p>Nenhum produto adicionado</p>
+                </div>
+            </div>
+
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span id="subtotal">R$ 0,00</span>
+                </div>
+                <div class="summary-row">
+                    <span>Desconto:</span>
+                    <div class="discount-input">
+                        <input type="number" id="discount" placeholder="0" min="0" max="100">
+                        <span>%</span>
+                    </div>
+                </div>
+                <div class="summary-row total">
+                    <span>Total:</span>
+                    <span id="total">R$ 0,00</span>
+                </div>
+            </div>
+
+            <div class="payment-methods">
+                <h4>Forma de Pagamento</h4>
+                <div class="payment-options">
+                    <label class="payment-option">
+                        <input type="radio" name="payment" value="dinheiro" checked>
+                        <i class="fas fa-money-bill-wave"></i>
+                        Dinheiro
+                    </label>
+                    <label class="payment-option">
+                        <input type="radio" name="payment" value="cartao">
+                        <i class="fas fa-credit-card"></i>
+                        Cartão
+                    </label>
+                    <label class="payment-option">
+                        <input type="radio" name="payment" value="pix">
+                        <i class="fas fa-qrcode"></i>
+                        PIX
+                    </label>
+                </div>
+            </div>
+
+            <div class="cart-actions">
+                <button class="btn btn-secondary btn-large">
+                    <i class="fas fa-print"></i>
+                    Pré-venda
+                </button>
+                <button class="btn btn-primary btn-large" onclick="finalizeSale()">
+                    <i class="fas fa-check"></i>
+                    Finalizar Venda
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let cart = [];
+        let saleNumber = 126;
+
+        function addToCart(productId) {
+            // Buscar produto da lista
+            const product = window.products.find(p => p.id === productId);
+            if (!product) return;
+
+            const existingItem = cart.find(item => item.id === productId);
+
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                cart.push({ ...product, quantity: 1 });
+            }
+
+            updateCart();
+        }
+
+            {const product = products[productId];
+            const existingItem = cart.find(item => item.id === productId);
+
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                cart.push({ ...product });
+            }
+
+            updateCart();
+        }
+
+        function updateCart() {
+            const cartItems = document.getElementById('cartItems');
+            const subtotalElement = document.getElementById('subtotal');
+            const totalElement = document.getElementById('total');
+
+            if (cart.length === 0) {
+                cartItems.innerHTML = `
+                    <div class="empty-cart">
+                        <i class="fas fa-shopping-cart"></i>
+                        <p>Nenhum produto adicionado</p>
+                    </div>
+                `;
+                subtotalElement.textContent = 'R$ 0,00';
+                totalElement.textContent = 'R$ 0,00';
+                return;
+            }
+
+            let subtotal = 0;
+            let html = '';
+
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                subtotal += itemTotal;
+
+                html += `
+                    <div class="cart-item">
+                        <div class="item-info">
+                            <h4>${item.name}</h4>
+                            <p class="item-price">R$ ${item.price.toFixed(2)}</p>
+                        </div>
+                        <div class="item-controls">
+                            <button class="qty-btn" onclick="changeQuantity(${item.id}, -1)">-</button>
+                            <span class="item-qty">${item.quantity}</span>
+                            <button class="qty-btn" onclick="changeQuantity(${item.id}, 1)">+</button>
+                            <button class="remove-btn" onclick="removeFromCart(${item.id})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            cartItems.innerHTML = html;
+            subtotalElement.textContent = `R$ ${subtotal.toFixed(2)}`;
+            totalElement.textContent = `R$ ${subtotal.toFixed(2)}`;
+        }
+
+        function changeQuantity(productId, change) {
+            const item = cart.find(item => item.id === productId);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) {
+                    removeFromCart(productId);
+                } else {
+                    updateCart();
+                }
+            }
+        }
+
+        function removeFromCart(productId) {
+            cart = cart.filter(item => item.id !== productId);
+            updateCart();
+        }
+
+        function clearCart() {
+            if (confirm('Tem certeza que deseja limpar o carrinho?')) {
+                cart = [];
+                updateCart();
+            }
+        }
+
+        function finalizeSale() {
+            if (cart.length === 0) {
+                alert('Adicione produtos ao carrinho antes de finalizar a venda!');
+                return;
+            }
+
+            if (confirm('Finalizar esta venda?')) {
+                const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+                
+                // Enviar para o servidor
+                fetch('/api/sales', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        total: subtotal,
+                        payment_method: paymentMethod
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('Venda finalizada com sucesso! ID: ' + data.sale_id);
+                    cart = [];
+                    saleNumber++;
+                    updateCart();
+                    document.querySelector('.sale-number').textContent = `Venda #${saleNumber.toString().padStart(5, '0')}`;
+                })
+                .catch(error => {
+                    alert('Erro ao finalizar venda: ' + error);
+                });
+            }
+        }
+
+        // Atualizar hora atual
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = 
+                now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Navegação por categorias
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
